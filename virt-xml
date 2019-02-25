@@ -93,6 +93,27 @@ def get_domain_and_guest(conn, domstr):
 
     return (domain, inactive_xmlobj, active_xmlobj)
 
+def get_domain_and_guest(conn, domstr, domain_type):
+    try:
+        if domain_type == "id":
+            domain = conn.lookupByID(int(domstr))
+        elif domain_type == "uuid":
+            domain = conn.lookupByUUIDString(domstr)
+        else:
+            domain = conn.lookupByName(domstr)
+    except libvirt.libvirtError as e:
+        fail(_("Could not find domain '%s': %s") % (domstr, e))
+
+    state = domain.info()[0]
+    active_xmlobj = None
+    inactive_xmlobj = virtinst.Guest(conn, parsexml=domain.XMLDesc(0))
+    if state != libvirt.VIR_DOMAIN_SHUTOFF:
+        active_xmlobj = inactive_xmlobj
+        inactive_xmlobj = virtinst.Guest(conn,
+                parsexml=domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE))
+
+    return (domain, inactive_xmlobj, active_xmlobj)
+
 
 ################
 # Change logic #
@@ -340,6 +361,12 @@ def parse_args():
     parser.add_argument("domain", nargs='?',
         help=_("Domain name, id, or uuid"))
 
+    parser.add_argument("--id", action="store_true",
+        help=_("Domain string is id"))
+
+    parser.add_argument("--uuid", action="store_true",
+        help=_("Domain string is uuid"))
+
     actg = parser.add_argument_group(_("XML actions"))
     actg.add_argument("--edit", nargs='?', default=-1,
         help=_("Edit VM XML. Examples:\n"
@@ -437,9 +464,15 @@ def main(conn=None):
     domain = None
     active_xmlobj = None
     inactive_xmlobj = None
+    domstr_type = "name"
+    if options.id:
+        domstr_type = "id"
+    elif options.uuid:
+        domstr_type = "uuid";
+
     if options.domain:
         domain, inactive_xmlobj, active_xmlobj = get_domain_and_guest(
-            conn, options.domain)
+            conn, options.domain, domstr_type)
     elif not options.build_xml:
         inactive_xmlobj = virtinst.Guest(conn, options.stdinxml)
 
