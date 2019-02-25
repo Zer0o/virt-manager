@@ -93,11 +93,20 @@ def get_domain_and_guest(conn, domstr):
 
     return (domain, inactive_xmlobj, active_xmlobj)
 
-def get_domain_and_guest(conn, domstr, domain_type):
+def get_domain_and_guest(conn, domstr, domstr_type):
     try:
-        if domain_type == "id":
+        int(domstr)
+        isint = True
+    except ValueError:
+        isint = False
+
+    uuidre = "[a-fA-F0-9]{8}[-]([a-fA-F0-9]{4}[-]){3}[a-fA-F0-9]{12}$"
+    isuuid = bool(re.match(uuidre, domstr))
+
+    try:
+        if domstr_type == "id" and isint:
             domain = conn.lookupByID(int(domstr))
-        elif domain_type == "uuid":
+        elif domstr_type == "uuid" and isuuid:
             domain = conn.lookupByUUIDString(domstr)
         else:
             domain = conn.lookupByName(domstr)
